@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flowchart title="PPO Supply Chain - Detailed Function-Level Flow">
+  
+  <!-- Main Execution Flow -->
+  <process id="main_start" type="start">
+    <name>Main Execution Start</name>
+    <description>Entry point of the program</description>
+  </process>
+  
+  <process id="create_gym_env" type="function">
+    <name>create_gym_env()</name>
+    <description>Creates gym environment wrapper with action/observation spaces</description>
+    <calls>
+      <call>create_supply_chain_env()</call>
+      <call>reset_supply_chain_env()</call>
+      <call>get_initial_state()</call>
+    </calls>
+  </process>
+  
+  <process id="train_ppo" type="function">
+    <name>train_ppo(env, episodes=1000)</name>
+    <description>Main training loop for PPO agent</description>
+    <calls>
+      <call>create_ppo_agent()</call>
+      <call>reset_gym_env()</call>
+      <call>get_action()</call>
+      <call>step_gym_env()</call>
+      <call>store_transition()</call>
+      <call>update_agent()</call>
+    </calls>
+  </process>
+  
+  <!-- Environment Creation Functions -->
+  <process id="create_supply_chain_env" type="function">
+    <name>create_supply_chain_env()</name>
+    <description>Creates base supply chain environment with parameters</description>
+    <returns>Environment dictionary with costs, capacities, etc.</returns>
+  </process>
+  
+  <process id="reset_supply_chain_env" type="function">
+    <name>reset_supply_chain_env(env)</name>
+    <description>Resets environment state and demand history</description>
+    <modifies>env['demand_history'], env['t']</modifies>
+  </process>
+  
+  <!-- State Management Functions -->
+  <process id="create_state" type="function">
+    <name>create_state(...)</name>
+    <description>Creates state representation with stocks, demand history</description>
+    <returns>State dictionary</returns>
+  </process>
+  
+  <process id="state_to_array" type="function">
+    <name>state_to_array(state)</name>
+    <description>Converts state dict to flat array for neural network</description>
+    <returns>Flattened numpy array</returns>
+  </process>
+  
+  <process id="get_initial_state" type="function">
+    <name>get_initial_state(env)</name>
+    <description>Gets initial state of supply chain</description>
+    <calls>
+      <call>create_state()</call>
+    </calls>
+  </process>
+  
+  <!-- Action Management Functions -->
+  <process id="create_action" type="function">
+    <name>create_action(...)</name>
+    <description>Creates action representation for production/shipping</description>
+    <returns>Action dictionary</returns>
+  </process>
+  
+  <!-- Environment Step Function -->
+  <process id="step_supply_chain_env" type="function">
+    <name>step_supply_chain_env(env, state, action)</name>
+    <description>Core environment step function</description>
+    <calls>
+      <call>calculate_demand()</call>
+      <call>create_state()</call>
+      <call>get_stock_levels()</call>
+    </calls>
+    <calculations>
+      <calc>Stock updates with capacity constraints</calc>
+      <calc>Reward calculation (revenues - costs - penalties)</calc>
+      <calc>Demand satisfaction and stockouts</calc>
+    </calculations>
+    <returns>next_state, reward, done</returns>
+  </process>
+  
+  <process id="calculate_demand" type="function">
+    <name>calculate_demand(env, j, i, t)</name>
+    <description>Calculates demand using cosine function + random component</description>
+    <formula>d_max/2 + d_max/2*cos(4π(2ji+t)/T) + random(0, d_var)</formula>
+  </process>
+  
+  <!-- Gym Wrapper Functions -->
+  <process id="reset_gym_env" type="function">
+    <name>reset_gym_env(gym_env)</name>
+    <description>Resets gym environment and returns initial observation</description>
+    <calls>
+      <call>create_supply_chain_env()</call>
+      <call>reset_supply_chain_env()</call>
+      <call>get_initial_state()</call>
+      <call>state_to_array()</call>
+    </calls>
+  </process>
+  
+  <process id="step_gym_env" type="function">
+    <name>step_gym_env(gym_env, action)</name>
+    <description>Steps gym environment with action conversion</description>
+    <calls>
+      <call>create_action()</call>
+      <call>step_supply_chain_env()</call>
+      <call>state_to_array()</call>
+    </calls>
+  </process>
+  
+  <!-- PPO Network Functions -->
+  <process id="create_ppo_network" type="function">
+    <name>create_ppo_network(state_size, action_size)</name>
+    <description>Creates PPO neural network architecture</description>
+    <components>
+      <component>Shared layers (Linear + ReLU)</component>
+      <component>Actor mean head</component>
+      <component>Actor std head</component>
+      <component>Critic value head</component>
+    </components>
+  </process>
+  
+  <process id="forward_ppo_network" type="function">
+    <name>forward_ppo_network(network, state)</name>
+    <description>Forward pass through PPO network</description>
+    <returns>action_mean, action_std, value</returns>
+  </process>
+  
+  <process id="get_action_and_value" type="function">
+    <name>get_action_and_value(network, state)</name>
+    <description>Samples action from policy and gets value estimate</description>
+    <calls>
+      <call>forward_ppo_network()</call>
+    </calls>
+    <operations>
+      <op>Create Normal distribution</op>
+      <op>Sample action</op>
+      <op>Calculate log probability</op>
+    </operations>
+  </process>
+  
+  <!-- PPO Agent Functions -->
+  <process id="create_ppo_agent" type="function">
+    <name>create_ppo_agent(...)</name>
+    <description>Creates PPO agent with network and optimizer</description>
+    <calls>
+      <call>create_ppo_network()</call>
+    </calls>
+    <initializes>
+      <init>Adam optimizer</init>
+      <init>Experience buffers</init>
+      <init>Hyperparameters</init>
+    </initializes>
+  </process>
+  
+  <process id="get_action" type="function">
+    <name>get_action(agent, state)</name>
+    <description>Gets action from agent for given state</description>
+    <calls>
+      <call>get_action_and_value()</call>
+    </calls>
+  </process>
+  
+  <process id="store_transition" type="function">
+    <name>store_transition(...)</name>
+    <description>Stores experience tuple in agent buffer</description>
+    <stores>state, action, log_prob, reward, value, done</stores>
+  </process>
+  
+  <process id="calculate_returns_and_advantages" type="function">
+    <name>calculate_returns_and_advantages(agent)</name>
+    <description>Calculates discounted returns and GAE advantages</description>
+    <calculations>
+      <calc>Discounted returns (backward pass)</calc>
+      <calc>Advantages = returns - values</calc>
+    </calculations>
+  </process>
+  
+  <process id="update_agent" type="function">
+    <name>update_agent(agent)</name>
+    <description>PPO policy update with clipped surrogate loss</description>
+    <calls>
+      <call>forward_ppo_network()</call>
+      <call>calculate_returns_and_advantages()</call>
+      <call>clear_agent_buffer()</call>
+    </calls>
+    <operations>
+      <op>Calculate probability ratios</op>
+      <op>Clipped surrogate loss</op>
+      <op>Value function loss</op>
+      <op>Gradient update (k epochs)</op>
+    </operations>
+  </process>
+  
+  <!-- Training Loop Components -->
+  <process id="training_loop" type="loop">
+    <name>Training Episode Loop</name>
+    <description>Main training loop over episodes</description>
+    <iterations>1000 episodes</iterations>
+    <per_episode>
+      <step>reset_gym_env()</step>
+      <step>Episode step loop (max 25 steps)</step>
+      <step>get_action() → step_gym_env() → store_transition()</step>
+      <step>update_agent() every 20 episodes</step>
+    </per_episode>
+  </process>
+  
+  <!-- Evaluation Functions -->
+  <process id="simulate_episode" type="function">
+    <name>simulate_episode(env, agent)</name>
+    <description>Simulates one episode with trained agent</description>
+    <calls>
+      <call>reset_gym_env()</call>
+      <call>get_action()</call>
+      <call>step_gym_env()</call>
+    </calls>
+  </process>
+  
+  <process id="calculate_cum_profit" type="function">
+    <name>calculate_cum_profit(...)</name>
+    <description>Evaluates agent over multiple episodes</description>
+    <calls>
+      <call>simulate_episode()</call>
+    </calls>
+    <iterations>200 episodes</iterations>
+  </process>
+  
+  <!-- Visualization Functions -->
+  <process id="plot_training_progress" type="function">
+    <name>plot_training_progress(episode_rewards)</name>
+    <description>Plots training curves</description>
+    <plots>
+      <plot>Episode rewards</plot>
+      <plot>Moving average rewards</plot>
+    </plots>
+  </process>
+  
+  <process id="visualize_cum_profit" type="function">
+    <name>visualize_cum_profit(profits)</name>
+    <description>Creates boxplot of profit distribution</description>
+  </process>
+  
+  <!-- Flow Connections -->
+  <connections>
+    <connection from="main_start" to="create_gym_env"/>
+    <connection from="create_gym_env" to="train_ppo"/>
+    <connection from="train_ppo" to="plot_training_progress"/>
+    <connection from="plot_training_progress" to="calculate_cum_profit"/>
+    <connection from="calculate_cum_profit" to="visualize_cum_profit"/>
+    
+    <!-- Internal function calls -->
+    <connection from="create_gym_env" to="create_supply_chain_env"/>
+    <connection from="create_gym_env" to="reset_supply_chain_env"/>
+    <connection from="train_ppo" to="create_ppo_agent"/>
+    <connection from="create_ppo_agent" to="create_ppo_network"/>
+    <connection from="training_loop" to="get_action"/>
+    <connection from="training_loop" to="step_gym_env"/>
+    <connection from="step_gym_env" to="step_supply_chain_env"/>
+    <connection from="step_supply_chain_env" to="calculate_demand"/>
+    <connection from="training_loop" to="update_agent"/>
+    <connection from="update_agent" to="calculate_returns_and_advantages"/>
+    <connection from="calculate_cum_profit" to="simulate_episode"/>
+  </connections>
+  
+</flowchart>
